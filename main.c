@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <limits.h>
+#include <math.h>
 
 #define x 0
 #define n (x-1)
@@ -17,7 +18,7 @@
 #define multiply (subtract-1)
 #define divide (multiply-1)
 
-#define range (127-divide)
+#define range (CHAR_MAX-divide)
 
 _Bool debug=0,showFormula=1;
 
@@ -109,7 +110,7 @@ char* generateValid(unsigned seed) {
 	return ret;
 }
 
-int eval(const char *formula, const int var, const int time) {
+char eval(const char *formula, const char var, const char time) {
 	if(*formula>0) return *formula;
 	int result;
 	switch(*formula) {
@@ -120,7 +121,7 @@ int eval(const char *formula, const int var, const int time) {
 	case multiply: return eval(formula+1,var,time)*eval(formula+getLength(formula+1)+1,var,time);
 	case divide:
 		result=eval(formula+getLength(formula+1)+1,var,time);
-		return result==0?(eval(formula+1,var,time)<0?INT_MIN:INT_MAX):eval(formula+1,var,time)/result;
+		return result==0?(eval(formula+1,var,time)<0?CHAR_MIN:CHAR_MAX):eval(formula+1,var,time)/result;
 	default:
 		printf("Error, %hhu invalid",*formula);
 		return 0;
@@ -178,11 +179,11 @@ _Bool scanBoolean(const _Bool defaultVal, const char* question) {
 		switch(c) {
 		case 'y':
 		case 'Y':
-			scanf("%c",&c);
+			scanf("%c",&c); //catch newline
 			return 1;
 		case 'n':
 		case 'N':
-			scanf("%c",&c);
+			scanf("%c",&c); //catch newline
 			return 0;
 		case '\n':
 			return defaultVal;
@@ -194,52 +195,88 @@ _Bool scanBoolean(const _Bool defaultVal, const char* question) {
 int main(void) {
 	debug=scanBoolean(0,"Debug output?");
 	showFormula=scanBoolean(1,"Show formula after solve/defeat?");
-	double score=0;
-	
-	do {
-		char* formula=generateValid(clock());
-		int *var=malloc(3*sizeof(int)),current=0;
-		if(!var) return 1;
-		for(unsigned short i=0;i<3;i++) {
-			current=eval(formula,current,i);
-			var[i]=current;
-		}
-		size_t varlen=3;
-		_Bool success=0;
-		do {
-			printf("\033[2J\033[1;1H");
-			printf("Score: %7.3f\nTry: %d\n\nEnter the next number in the sequence\n",score,(unsigned int)(varlen-2));
-			for(size_t i=0;i<varlen;i++) {
-				printf("%d -> ",var[i]);
+	double highscore[10];
+	char names[10][32],*hnames[10];
+	for(char i=0;i<10;i++) {
+		highscore[i]=0;
+		hnames[i]=&(names[i]);
+		names[i][0]='\0';
+	}
+	do{
+		double score=0;
+		
+		for(unsigned char lives=20;lives>0;) {
+			char* formula=generateValid(clock());
+			int *var=malloc(3*sizeof(int)),current=0;
+			if(!var) return 1;
+			for(unsigned short i=0;i<3;i++) {
+				current=eval(formula,current,i);
+				var[i]=current;
 			}
-			int input;
-			if(scanf("%d",&input)==1) {
-				char c;
-				scanf("%c",&c);
-				current=eval(formula,current,varlen);
-				if(input==current) {
-					success=1;
-					break;
+			size_t varlen=3;
+			_Bool success=0;
+			do {
+				lives--;
+				printf("\033[2J\033[1;1H"); //clear commandline
+				printf("Score: %7.3f\nRemaining Lives: %d\nTry: %d\n\nEnter the next number in the sequence\n",score,lives,(unsigned int)(varlen-2));
+				for(size_t i=0;i<varlen;i++) {
+					printf("%d -> ",var[i]);
 				}
-				varlen++;
-				var=realloc(var,sizeof(int)*varlen);
-				if(!var) return 1;
-				var[varlen-1]=current;
-				printf("Incorrect; Next element: %d\n",current);
-			} else {
-				printf("\nIllegal Input\n");
+				int input;
+				if(scanf("%d",&input)==1) {
+					scanf("%c"); //catch newline
+					current=eval(formula,current,varlen);
+					if(input==current) {
+						success=1;
+						break;
+					}
+					varlen++;
+					var=realloc(var,sizeof(int)*varlen);
+					if(!var) return 1;
+					var[varlen-1]=current;
+					printf("Incorrect; Next element: %d\n",current);
+				} else {
+					printf("\nIllegal Input\n");
+				}
+			} while(scanBoolean(1,"Retry?"));
+			if(success) {
+				lives++;
+				score+=getLength(formula)/sqrt(varlen-2);
+				printf("Correct\nNew Score: %7.3f\n",score);
 			}
-		} while(scanBoolean(1,"Retry?"));
-		if(success) {
-			score+=getLength(formula)/(double)(varlen-2);
-			printf("Correct\nNew Score: %7.3f\n",score);
+			if(showFormula) {
+				print(formula);
+				printf("\n");
+				scanf("%c"); //wait for input
+			}
+			free(formula);
+			free(var);
 		}
-		if(showFormula) {
-			print(formula);
-			printf("\n");
+		if(highscore[9]<score) {
+			highscore[9]=score;
+			unsigned char location=9;
+			for(;location>0;location--) {
+				if(highscore[location]>highscore[location-1]) {
+					double swap=highscore[location-1];
+					char *nswap;
+					nswap=hnames[location-1];
+					
+					highscore[location-1]=highscore[location];
+					hnames[location-1]=hnames[location];
+					highscore[location]=swap;
+					hnames[location]=nswap;
+				} else break;
+			}
+			printf("New Highscore, enter your name(up to 31 characters): ");
+			scanf("%31s",hnames[location]);
+			scanf("%c"); //catch newline
+			if(scanBoolean(1,"Show highscores?")) {
+				printf("\033[2J\033[1;1H"); //clear commandline
+				for(location=0;location<10;location++) {
+					printf("%2d: %7.3f %s\n",location+1,highscore[location],hnames[location]);
+				}
+			}
 		}
-		free(formula);
-		free(var);
 	} while(scanBoolean(1,"Continue?"));
 	return 0;
 }
