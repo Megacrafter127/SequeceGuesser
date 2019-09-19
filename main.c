@@ -22,6 +22,8 @@
 
 _Bool debug=0,showFormula=1;
 
+static char char_sink;
+
 char* generate(unsigned int try) {
 	struct chain {
 		char data;
@@ -179,11 +181,11 @@ _Bool scanBoolean(const _Bool defaultVal, const char* question) {
 		switch(c) {
 		case 'y':
 		case 'Y':
-			scanf("%c",&c); //catch newline
+			scanf("%c",&char_sink); //catch newline
 			return 1;
 		case 'n':
 		case 'N':
-			scanf("%c",&c); //catch newline
+			scanf("%c",&char_sink); //catch newline
 			return 0;
 		case '\n':
 			return defaultVal;
@@ -224,7 +226,7 @@ int main(void) {
 				}
 				int input;
 				if(scanf("%d",&input)==1) {
-					scanf("%c"); //catch newline
+					scanf("%c",&char_sink); //catch newline
 					current=eval(formula,current,varlen);
 					if(input==current) {
 						success=1;
@@ -247,7 +249,7 @@ int main(void) {
 			if(showFormula) {
 				print(formula);
 				printf("\n");
-				scanf("%c"); //wait for input
+				scanf("%c",&char_sink); //wait for input
 			}
 			free(formula);
 			free(var);
@@ -269,7 +271,7 @@ int main(void) {
 			}
 			printf("New Highscore, enter your name(up to 31 characters): ");
 			scanf("%31s",hnames[location]);
-			scanf("%c"); //catch newline
+			scanf("%c",&char_sink); //catch newline
 			if(scanBoolean(1,"Show highscores?")) {
 				printf("\033[2J\033[1;1H"); //clear commandline
 				for(location=0;location<10;location++) {
